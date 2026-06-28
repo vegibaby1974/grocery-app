@@ -126,6 +126,7 @@
       </thead>
       <tbody id="body"></tbody>
     </table>
+    <datalist id="shopList"></datalist>
     <div class="addrow">
       <button onclick="addRow()">＋ 添加一行</button>
       <span class="hint" style="margin-left:8px">提示：填了“数量”就用数量，没数量时用“重量”生成清单</span>
@@ -286,8 +287,22 @@ function renderChips(){
     c.appendChild(chip);
   });
 }
+// 收集当前清单里已出现过的购买地点，做成下拉备选项（去重）。
+// 默认地点放最前，保证它一直在备选里。
+function shopOptions(){
+  const set=new Set([DEFAULT_SHOP]);
+  Object.values(lists).forEach(l=>l.rows.forEach(r=>{
+    if(r.shop&&r.shop.trim()) set.add(r.shop.trim());
+  }));
+  return [...set];
+}
+
 function renderGrid(){
   const body=document.getElementById('body');body.innerHTML='';
+  // 购买地点的备选清单：用一个共享的 <datalist>，所有“地点”输入框都指向它
+  const opts=shopOptions();
+  const dl=document.getElementById('shopList');
+  dl.innerHTML=opts.map(o=>`<option value="${esc(o)}"></option>`).join('');
   lists[currentId].rows.forEach((r,i)=>{
     const tr=document.createElement('tr');
     tr.innerHTML=`
@@ -295,7 +310,7 @@ function renderGrid(){
       <td class="col-req"><input value="${esc(r.req)}" data-f="req" data-i="${i}" placeholder="要求"></td>
       <td class="col-qty"><input value="${esc(r.qty)}" data-f="qty" data-i="${i}" placeholder="数量"></td>
       <td class="col-wt"><input value="${esc(r.wt)}" data-f="wt" data-i="${i}" placeholder="重量"></td>
-      <td class="col-shop"><input value="${esc(r.shop)}" data-f="shop" data-i="${i}" placeholder="地点"></td>
+      <td class="col-shop"><input value="${esc(r.shop)}" data-f="shop" data-i="${i}" placeholder="地点" list="shopList"></td>
       <td class="col-act"><button class="rowdel" title="删除" data-del="${i}">×</button></td>`;
     body.appendChild(tr);
   });
@@ -303,6 +318,14 @@ function renderGrid(){
     inp.addEventListener('input',e=>{
       const i=+e.target.dataset.i,f=e.target.dataset.f;
       lists[currentId].rows[i][f]=e.target.value;
+      // 若新输入了一个没见过的购买地点，把它补进备选下拉，方便其它行直接选
+      if(f==='shop'){
+        const v=e.target.value.trim();
+        const dl=document.getElementById('shopList');
+        if(v && !shopOptions().includes(v)){
+          const o=document.createElement('option');o.value=v;dl.appendChild(o);
+        }
+      }
       renderShort();scheduleSave();
     });
   });
@@ -331,8 +354,8 @@ function saveCurrent(){
 }
 function addRow(){
   const rows=lists[currentId].rows;
-  const lastShop=rows.length?rows[rows.length-1].shop:DEFAULT_SHOP;
-  rows.push({name:'',req:'',qty:'',wt:'',shop:lastShop});
+  // 新加行的购买地点默认填“青清源生鲜超市”，需要别处再改/选即可
+  rows.push({name:'',req:'',qty:'',wt:'',shop:DEFAULT_SHOP});
   renderGrid();scheduleSave();
 }
 function newList(){
