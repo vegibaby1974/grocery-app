@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>买菜清单管理</title>
+<style>
+  :root{
+    --bg:#f6f5f0; --panel:#ffffff; --ink:#23271f; --muted:#6f7466;
+    --line:#d9dcd0; --accent:#4a7c2f; --accent-soft:#eaf2e2;
+    --warn:#b5482e; --header:#3a4031;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:var(--bg);color:var(--ink);font-size:15px;line-height:1.5}
+  header{background:var(--header);color:#f3f2ec;padding:14px 18px;display:flex;
+    align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+  header h1{margin:0;font-size:18px;font-weight:600;letter-spacing:.5px}
+  .wrap{max-width:1000px;margin:0 auto;padding:16px}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+  select,input,button,textarea{font-family:inherit;font-size:14px}
+  select,input[type=text],input[type=password]{padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:#fff}
+  button{padding:8px 13px;border:1px solid var(--line);border-radius:6px;background:#fff;
+    cursor:pointer;color:var(--ink);transition:.15s}
+  button:hover{background:#f0efe7}
+  button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  button.primary:hover{background:#3d6826}
+  button.ghost{background:transparent}
+  .danger{color:var(--warn)}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:16px}
+  table{width:100%;border-collapse:collapse}
+  th{background:#eef0e8;text-align:left;font-weight:600;font-size:13px;color:var(--header);
+    padding:9px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+  td{padding:5px 6px;border-bottom:1px solid #ececdf;vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  td input{width:100%;border:1px solid transparent;background:transparent;padding:5px 6px;border-radius:5px}
+  td input:hover{border-color:#e3e6d8}
+  td input:focus{border-color:var(--accent);background:#fff;outline:none}
+  .col-name{width:22%} .col-req{width:24%} .col-qty{width:13%} .col-wt{width:13%} .col-shop{width:20%}
+  .col-act{width:42px;text-align:center}
+  .rowdel{border:none;background:none;color:#b9bcae;font-size:18px;cursor:pointer;padding:2px 6px}
+  .rowdel:hover{color:var(--warn)}
+  .addrow{padding:10px;background:#fafaf5}
+  .meta{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+  .meta input{flex:1;min-width:160px}
+  .hint{color:var(--muted);font-size:13px;margin:4px 0 0}
+  .out{background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px;
+    white-space:pre-wrap;word-break:break-all;font-size:14px;min-height:40px}
+  .section-title{font-size:14px;font-weight:600;color:var(--header);margin:0 0 8px;
+    display:flex;align-items:center;gap:8px}
+  .section-title::before{content:"";width:4px;height:15px;background:var(--accent);border-radius:2px}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--header);color:#fff;padding:10px 18px;border-radius:8px;opacity:0;
+    transition:.25s;pointer-events:none;z-index:50}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .lists{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .chip{padding:5px 10px;border:1px solid var(--line);border-radius:20px;background:#fff;
+    cursor:pointer;font-size:13px;display:flex;align-items:center;gap:6px}
+  .chip.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+  .chip .x{color:#b9bcae;font-weight:700}
+  .chip .x:hover{color:var(--warn)}
+  canvas{display:none}
+  /* sync status */
+  .sync{font-size:12px;color:#cdd2c2;display:flex;align-items:center;gap:6px}
+  .dot{width:8px;height:8px;border-radius:50%;background:#9aa18c}
+  .dot.ok{background:#7fc24a} .dot.busy{background:#e0b13a} .dot.err{background:#e07a3a}
+  /* gate overlay */
+  .gate{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;
+    justify-content:center;z-index:100;padding:20px}
+  .gate-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:28px;
+    max-width:360px;width:100%;text-align:center}
+  .gate-card h2{margin:0 0 6px;font-size:20px;color:var(--header)}
+  .gate-card p{margin:0 0 18px;color:var(--muted);font-size:14px}
+  .gate-card input{width:100%;margin-bottom:12px;text-align:center;font-size:16px;padding:10px}
+  .gate-card button{width:100%}
+  .gate-err{color:var(--warn);font-size:13px;min-height:18px;margin-top:8px}
+  @media(max-width:640px){
+    .col-req,.col-wt{display:none}
+    th.col-req,th.col-wt{display:none}
+  }
+</style>
+</head>
+<body>
+
+<!-- 口令门 -->
+<div class="gate" id="gate">
+  <div class="gate-card">
+    <h2>买菜清单</h2>
+    <p>请输入口令以打开清单</p>
+    <input type="password" id="gatePw" placeholder="口令" autocomplete="current-password">
+    <button class="primary" id="gateBtn" onclick="unlock()">进入</button>
+    <div class="gate-err" id="gateErr"></div>
+  </div>
+</div>
+
+<header style="display:none" id="appHeader">
+  <h1>买菜清单管理</h1>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+    <span class="sync"><span class="dot" id="syncDot"></span><span id="syncTxt">就绪</span></span>
+    <button class="ghost" style="color:#f3f2ec;border-color:#5a6049" onclick="newList()">＋ 新建清单</button>
+    <button class="ghost" style="color:#f3f2ec;border-color:#5a6049" onclick="duplicateList()">复制为新清单</button>
+  </div>
+</header>
+
+<div class="wrap" id="app" style="display:none">
+  <div class="panel" style="padding:12px;margin-bottom:14px">
+    <div class="section-title">我的清单</div>
+    <div class="lists" id="listChips"></div>
+  </div>
+
+  <div class="meta">
+    <input type="text" id="listTitle" placeholder="清单名称（如 11月20日买菜）" oninput="saveCurrent()">
+  </div>
+
+  <div class="panel">
+    <table id="grid">
+      <thead>
+        <tr>
+          <th class="col-name">品名</th>
+          <th class="col-req">要求</th>
+          <th class="col-qty">数量</th>
+          <th class="col-wt">重量</th>
+          <th class="col-shop">购买地点</th>
+          <th class="col-act"></th>
+        </tr>
+      </thead>
+      <tbody id="body"></tbody>
+    </table>
+    <div class="addrow">
+      <button onclick="addRow()">＋ 添加一行</button>
+      <span class="hint" style="margin-left:8px">提示：填了“数量”就用数量，没数量时用“重量”生成清单</span>
+    </div>
+  </div>
+
+  <div class="bar">
+    <button class="primary" onclick="downloadImage()">⬇ 下载图片</button>
+    <button class="primary" onclick="copyShort()">📋 拷贝简化清单</button>
+    <button onclick="previewImage()">预览图片</button>
+    <button onclick="forceSync()">↻ 立即同步</button>
+  </div>
+
+  <div class="panel" style="padding:14px">
+    <div class="section-title">简化清单（用于 UU 跑腿下单）</div>
+    <div class="out" id="shortOut"></div>
+  </div>
+
+  <div class="panel" id="previewPanel" style="padding:14px;display:none">
+    <div class="section-title">图片预览</div>
+    <img id="previewImg" style="max-width:100%;border:1px solid var(--line);border-radius:6px">
+  </div>
+</div>
+
+<canvas id="cv"></canvas>
+<div class="toast" id="toast"></div>
+
+<script>
+const DEFAULT_SHOP = "青清源生鲜超市";
+const API = "/api/lists";
+let lists = {};
+let currentId = null;
+let pw = "";            // 口令，登录后保存在内存，用于每次 API 请求
+let saveTimer = null;   // 防抖：连续编辑只在停手后保存一次
+let lastSavedJSON = ""; // 避免无变化时重复上传
+
+function uid(){return 'L'+Date.now()+Math.floor(Math.random()*1000)}
+
+function seedData(){
+  return [
+    ["土番茄","","6个","",DEFAULT_SHOP],["胡萝卜","小个的","6根","",DEFAULT_SHOP],
+    ["黄瓜","小个的","2根","",DEFAULT_SHOP],["尖莲白","小个的","1个","",DEFAULT_SHOP],
+    ["白花菜","小个的","1个","",DEFAULT_SHOP],["香芹菜","粗的","1根","",DEFAULT_SHOP],
+    ["口蘑","小个的","12个","",DEFAULT_SHOP],["杏鲍菇","小个的","1个","",DEFAULT_SHOP],
+    ["香菇","","6个","",DEFAULT_SHOP],["秋葵","小个的","12根","",DEFAULT_SHOP],
+    ["橄榄豆","若无就四季豆","","6两",DEFAULT_SHOP],["青豆米","","","3两",DEFAULT_SHOP],
+    ["大葱","","1根","",DEFAULT_SHOP],["土豆","小个的","1个","",DEFAULT_SHOP],
+    ["紫洋葱","小个的","2个","",DEFAULT_SHOP],["白萝卜","小个的","1个","",DEFAULT_SHOP],
+    ["软江叶","","","3斤",DEFAULT_SHOP],["红富士苹果","大个的","6个","",DEFAULT_SHOP],
+    ["老南瓜","","","2斤",DEFAULT_SHOP],["娃娃菜","小个的","1个","",DEFAULT_SHOP],
+    ["千喜果","","60个","",DEFAULT_SHOP],["瓢儿白","大个的","6个","",DEFAULT_SHOP],
+    ["莴笋尖","","12根","",DEFAULT_SHOP],["抄手皮","若无就饺子皮","30张","",DEFAULT_SHOP],
+    ["豆皮","","2张","",DEFAULT_SHOP],["豆腐","不要盒装的","3块","",DEFAULT_SHOP],
+    ["新希望红枣酸牛奶","","6个","","红旗超市"],["冰鸡腿","冰冻的","6个","","红旗超市"],
+    ["去骨蹄膀","小个的","1个","","红旗超市"],["沃柑","小个的","6个","","红旗超市"],
+  ].map(r=>({name:r[0],req:r[1],qty:r[2],wt:r[3],shop:r[4]}));
+}
+
+/* ---------- 同步状态指示 ---------- */
+function setSync(state,txt){
+  const dot=document.getElementById('syncDot'),t=document.getElementById('syncTxt');
+  dot.className='dot '+(state||'');t.textContent=txt;
+}
+
+/* ---------- 口令门 / 登录 ---------- */
+async function unlock(){
+  const val=document.getElementById('gatePw').value;
+  const err=document.getElementById('gateErr');
+  const btn=document.getElementById('gateBtn');
+  if(!val){err.textContent='请输入口令';return}
+  btn.disabled=true;err.textContent='正在验证…';
+  pw=val;
+  try{
+    const data=await apiLoad();           // 用口令拉数据，顺便验证口令
+    applyLoaded(data);
+    document.getElementById('gate').style.display='none';
+    document.getElementById('appHeader').style.display='flex';
+    document.getElementById('app').style.display='block';
+    renderAll();
+    setSync('ok','已同步');
+    try{sessionStorage.setItem('grocery_pw',pw)}catch(e){}
+  }catch(e){
+    pw="";btn.disabled=false;
+    if(e.status===401){err.textContent='口令不对，请重试'}
+    else{err.textContent='连接失败，请检查网络后重试'}
+  }
+}
+
+document.getElementById('gatePw').addEventListener('keydown',e=>{if(e.key==='Enter')unlock()});
+
+/* ---------- 与 Cloudflare 后端通信 ---------- */
+async function apiLoad(){
+  const res=await fetch(API,{headers:{'X-Passcode':pw}});
+  if(!res.ok){const err=new Error('load failed');err.status=res.status;throw err}
+  return res.json();   // {lists:{...}, current:"..."} 或 {} 表示云端还没数据
+}
+async function apiSave(payload){
+  const res=await fetch(API,{
+    method:'PUT',
+    headers:{'Content-Type':'application/json','X-Passcode':pw},
+    body:JSON.stringify(payload)
+  });
+  if(!res.ok){const err=new Error('save failed');err.status=res.status;throw err}
+  return res.json();
+}
+
+function applyLoaded(data){
+  if(data && data.lists && Object.keys(data.lists).length){
+    lists=data.lists; currentId=data.current || Object.keys(lists)[0];
+  }else{
+    // 云端还是空的：用示例清单初始化，并立刻写回云端
+    const id=uid();
+    lists={[id]:{title:"示例清单",rows:seedData()}};
+    currentId=id;
+    scheduleSave(true);
+  }
+}
+
+/* 防抖保存：编辑后 800ms 内不再变动才真正上传，避免每敲一下都发请求 */
+function scheduleSave(immediate){
+  clearTimeout(saveTimer);
+  const doSave=async()=>{
+    const payload={lists,current:currentId};
+    const json=JSON.stringify(payload);
+    if(json===lastSavedJSON){setSync('ok','已同步');return}
+    setSync('busy','保存中…');
+    try{
+      await apiSave(payload);
+      lastSavedJSON=json;
+      setSync('ok','已同步');
+    }catch(e){
+      setSync('err','保存失败，稍后重试');
+    }
+  };
+  if(immediate){doSave()} else {saveTimer=setTimeout(doSave,800)}
+}
+function forceSync(){scheduleSave(true);toast('已触发同步')}
+
+/* ---------- 渲染 ---------- */
+function toast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),1800);
+}
+function renderChips(){
+  const c=document.getElementById('listChips');c.innerHTML='';
+  Object.keys(lists).forEach(id=>{
+    const chip=document.createElement('div');
+    chip.className='chip'+(id===currentId?' active':'');
+    const label=document.createElement('span');
+    label.textContent=lists[id].title||'未命名清单';
+    label.onclick=()=>{currentId=id;scheduleSave(true);renderAll()};
+    chip.appendChild(label);
+    if(Object.keys(lists).length>1){
+      const x=document.createElement('span');x.className='x';x.textContent='×';
+      x.onclick=(e)=>{e.stopPropagation();delList(id)};
+      chip.appendChild(x);
+    }
+    c.appendChild(chip);
+  });
+}
+function renderGrid(){
+  const body=document.getElementById('body');body.innerHTML='';
+  lists[currentId].rows.forEach((r,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td class="col-name"><input value="${esc(r.name)}" data-f="name" data-i="${i}" placeholder="品名"></td>
+      <td class="col-req"><input value="${esc(r.req)}" data-f="req" data-i="${i}" placeholder="要求"></td>
+      <td class="col-qty"><input value="${esc(r.qty)}" data-f="qty" data-i="${i}" placeholder="数量"></td>
+      <td class="col-wt"><input value="${esc(r.wt)}" data-f="wt" data-i="${i}" placeholder="重量"></td>
+      <td class="col-shop"><input value="${esc(r.shop)}" data-f="shop" data-i="${i}" placeholder="地点"></td>
+      <td class="col-act"><button class="rowdel" title="删除" data-del="${i}">×</button></td>`;
+    body.appendChild(tr);
+  });
+  body.querySelectorAll('input').forEach(inp=>{
+    inp.addEventListener('input',e=>{
+      const i=+e.target.dataset.i,f=e.target.dataset.f;
+      lists[currentId].rows[i][f]=e.target.value;
+      renderShort();scheduleSave();
+    });
+  });
+  body.querySelectorAll('[data-del]').forEach(b=>{
+    b.onclick=()=>{lists[currentId].rows.splice(+b.dataset.del,1);renderGrid();renderShort();scheduleSave()};
+  });
+}
+function esc(s){return (s||'').replace(/"/g,'&quot;')}
+function buildShort(){
+  const rows=lists[currentId].rows.filter(r=>r.name.trim());
+  const parts=rows.map(r=>{
+    const amt=(r.qty&&r.qty.trim())?r.qty.trim():(r.wt&&r.wt.trim()?r.wt.trim():'');
+    return r.name.trim()+amt;
+  });
+  return "详细要求请参考上传图片,"+parts.join(',');
+}
+function renderShort(){document.getElementById('shortOut').textContent=buildShort()}
+function renderAll(){
+  document.getElementById('listTitle').value=lists[currentId].title||'';
+  renderChips();renderGrid();renderShort();
+  document.getElementById('previewPanel').style.display='none';
+}
+function saveCurrent(){
+  lists[currentId].title=document.getElementById('listTitle').value;
+  renderChips();renderShort();scheduleSave();
+}
+function addRow(){
+  const rows=lists[currentId].rows;
+  const lastShop=rows.length?rows[rows.length-1].shop:DEFAULT_SHOP;
+  rows.push({name:'',req:'',qty:'',wt:'',shop:lastShop});
+  renderGrid();scheduleSave();
+}
+function newList(){
+  const id=uid();lists[id]={title:'新清单',rows:[{name:'',req:'',qty:'',wt:'',shop:DEFAULT_SHOP}]};
+  currentId=id;renderAll();scheduleSave(true);document.getElementById('listTitle').focus();
+}
+function duplicateList(){
+  const id=uid();const src=lists[currentId];
+  lists[id]={title:(src.title||'清单')+' 副本',rows:src.rows.map(r=>({...r}))};
+  currentId=id;renderAll();scheduleSave(true);toast('已复制为新清单，可在此基础修改');
+}
+function delList(id){
+  if(!confirm('删除清单「'+(lists[id].title||'未命名')+'」？')) return;
+  delete lists[id];
+  if(id===currentId) currentId=Object.keys(lists)[0];
+  renderAll();scheduleSave(true);
+}
+
+async function copyShort(){
+  const txt=buildShort();
+  try{await navigator.clipboard.writeText(txt);toast('简化清单已拷贝')}
+  catch(e){
+    const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);
+    ta.select();document.execCommand('copy');ta.remove();toast('简化清单已拷贝');
+  }
+}
+
+/* ---------- 生成图片 ---------- */
+function drawImage(){
+  const rows=lists[currentId].rows.filter(r=>r.name.trim());
+  const cv=document.getElementById('cv');const ctx=cv.getContext('2d');
+  const scale=2;
+  const cols=[20,150,330,420,510];
+  const colW=[130,180,90,90,170];
+  const W=720, rowH=30, headH=64, padTop=headH+38;
+  const H=padTop+rows.length*rowH+24;
+  cv.width=W*scale;cv.height=H*scale;ctx.scale(scale,scale);
+  ctx.fillStyle='#ffffff';ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#3a4031';ctx.font='bold 22px sans-serif';ctx.textBaseline='middle';
+  ctx.fillText(lists[currentId].title||'买菜清单',20,30);
+  ctx.fillStyle='#6f7466';ctx.font='13px sans-serif';
+  ctx.fillText(new Date().toLocaleDateString('zh-CN'),20,52);
+  const hy=headH;
+  ctx.fillStyle='#eef0e8';ctx.fillRect(0,hy,W,34);
+  ctx.fillStyle='#3a4031';ctx.font='bold 14px sans-serif';
+  ['品名','要求','数量','重量','购买地点'].forEach((h,i)=>ctx.fillText(h,cols[i],hy+17));
+  ctx.font='14px sans-serif';
+  rows.forEach((r,i)=>{
+    const y=padTop+i*rowH;
+    if(i%2===0){ctx.fillStyle='#fafaf5';ctx.fillRect(0,y-3,W,rowH);}
+    [r.name,r.req,r.qty,r.wt,r.shop].forEach((c,j)=>{
+      ctx.fillStyle=(j===0)?'#23271f':'#41463a';
+      ctx.fillText(fit(ctx,c||'',colW[j]),cols[j],y+rowH/2-3);
+    });
+    ctx.strokeStyle='#ececdf';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(0,y+rowH-3);ctx.lineTo(W,y+rowH-3);ctx.stroke();
+  });
+  return cv;
+}
+function fit(ctx,text,maxW){
+  if(ctx.measureText(text).width<=maxW) return text;
+  let t=text;
+  while(t.length>1 && ctx.measureText(t+'…').width>maxW) t=t.slice(0,-1);
+  return t+'…';
+}
+function downloadImage(){
+  const cv=drawImage();const a=document.createElement('a');
+  a.download=(lists[currentId].title||'买菜清单')+'.png';
+  a.href=cv.toDataURL('image/png');a.click();toast('图片已下载');
+}
+function previewImage(){
+  const cv=drawImage();
+  document.getElementById('previewImg').src=cv.toDataURL('image/png');
+  document.getElementById('previewPanel').style.display='block';
+  document.getElementById('previewPanel').scrollIntoView({behavior:'smooth'});
+}
+
+/* ---------- 启动：若本次会话已登录过，自动恢复 ---------- */
+(function init(){
+  let saved="";try{saved=sessionStorage.getItem('grocery_pw')||""}catch(e){}
+  if(saved){
+    document.getElementById('gatePw').value=saved;
+    unlock();
+  }else{
+    document.getElementById('gatePw').focus();
+  }
+})();
+</script>
+</body>
+</html>
