@@ -87,12 +87,34 @@
   .gate-card button{width:100%}
   .gate-err{color:var(--warn);font-size:13px;min-height:18px;margin-top:8px}
   .shop-short{display:none}
+  /* 单格编辑弹窗 */
+  .editmask{position:fixed;inset:0;background:rgba(35,39,31,.45);z-index:200;
+    display:flex;align-items:center;justify-content:center;padding:20px}
+  .editbox{background:#fff;border-radius:14px;padding:20px;width:100%;max-width:440px;
+    box-shadow:0 12px 40px rgba(0,0,0,.25)}
+  .editlabel{font-size:14px;font-weight:600;color:var(--header);margin-bottom:10px;
+    display:flex;align-items:center;gap:8px}
+  .editlabel::before{content:"";width:4px;height:15px;background:var(--accent);border-radius:2px}
+  #editInput{width:100%;font-family:inherit;font-size:17px;line-height:1.5;padding:12px;
+    border:1px solid var(--line);border-radius:8px;resize:vertical;box-sizing:border-box}
+  #editInput:focus{border-color:var(--accent);outline:none}
+  .editbtns{display:flex;gap:10px;justify-content:flex-end;margin-top:14px}
+  .editbtns button{padding:9px 18px;border:1px solid var(--line);border-radius:8px;
+    background:#fff;cursor:pointer;font-size:15px}
+  .editbtns button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  /* 表格里改成只读显示的单元格 */
+  td.cell{cursor:pointer;min-height:24px}
+  td.cell .cellval{display:block;padding:5px 6px;border-radius:5px;min-height:24px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  td.cell:hover .cellval{background:#eef0e8}
+  td.cell .cellval:empty::after{content:"";display:inline-block;min-height:1em}
   @media(max-width:640px){
     /* 手机上不再隐藏“要求”，整体收紧字号和间距让各列都能显示 */
     body{font-size:14px}
     th{font-size:11px;padding:7px 3px}
     td{padding:0 2px}
     td input{padding:3px 3px;font-size:13px}
+    td.cell .cellval{font-size:13px;padding:6px 4px}
     td select{font-size:13px;padding:4px 2px !important}
     .col-name{width:29%} .col-req{width:30%} .col-qty{width:15%} .col-shop{width:16%}
     .col-act{width:18px}
@@ -116,12 +138,12 @@
     <input type="password" id="gatePw" placeholder="口令" autocomplete="current-password">
     <button class="primary" id="gateBtn" onclick="unlock()">进入</button>
     <div class="gate-err" id="gateErr"></div>
-    <p style="margin:14px 0 0;font-size:11px;color:#b8bdac">v2.3</p>
+    <p style="margin:14px 0 0;font-size:11px;color:#b8bdac">v2.4</p>
   </div>
 </div>
 
 <header style="display:none" id="appHeader">
-  <h1>买菜清单管理 <span style="font-size:12px;font-weight:400;color:#aab09a;letter-spacing:0">v2.3</span></h1>
+  <h1>买菜清单管理 <span style="font-size:12px;font-weight:400;color:#aab09a;letter-spacing:0">v2.4</span></h1>
   <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
     <span class="sync"><span class="dot" id="syncDot"></span><span id="syncTxt">就绪</span></span>
     <button class="ghost" style="color:#f3f2ec;border-color:#5a6049" onclick="newList()">＋ 新建清单</button>
@@ -176,6 +198,18 @@
 
 <canvas id="cv"></canvas>
 <div class="toast" id="toast"></div>
+
+<!-- 单格编辑弹窗 -->
+<div class="editmask" id="editMask" style="display:none">
+  <div class="editbox">
+    <div class="editlabel" id="editLabel">编辑</div>
+    <textarea id="editInput" rows="3"></textarea>
+    <div class="editbtns">
+      <button onclick="closeEdit(false)">取消</button>
+      <button class="primary" onclick="closeEdit(true)">确定</button>
+    </div>
+  </div>
+</div>
 
 <script>
 const DEFAULT_SHOP = "青清源生鲜超市";
@@ -332,9 +366,9 @@ function renderGrid(){
   lists[currentId].rows.forEach((r,i)=>{
     const tr=document.createElement('tr');
     tr.innerHTML=`
-      <td class="col-name"><input value="${esc(r.name)}" data-f="name" data-i="${i}"></td>
-      <td class="col-req"><input value="${esc(r.req)}" data-f="req" data-i="${i}"></td>
-      <td class="col-qty"><input value="${esc(r.qty||r.wt||'')}" data-f="amt" data-i="${i}"></td>
+      <td class="cell col-name" data-f="name" data-i="${i}"><span class="cellval">${esc(r.name)}</span></td>
+      <td class="cell col-req" data-f="req" data-i="${i}"><span class="cellval">${esc(r.req)}</span></td>
+      <td class="cell col-qty" data-f="amt" data-i="${i}"><span class="cellval">${esc(r.qty||r.wt||'')}</span></td>
       <td class="col-shop">${shopSelectHTML(r.shop,i,opts)}</td>
       <td class="col-act">
         <button class="rowmenu" title="操作" data-menu="${i}">⋮</button>
@@ -346,18 +380,10 @@ function renderGrid(){
       </td>`;
     body.appendChild(tr);
   });
-  // 文本类输入（品名/要求/数量）
-  body.querySelectorAll('input').forEach(inp=>{
-    inp.addEventListener('input',e=>{
-      const i=+e.target.dataset.i,f=e.target.dataset.f;
-      if(f==='amt'){
-        // 合并后的“数量”列：统一写进 qty，并清空旧的 wt 字段避免重复
-        lists[currentId].rows[i].qty=e.target.value;
-        lists[currentId].rows[i].wt='';
-      }else{
-        lists[currentId].rows[i][f]=e.target.value;
-      }
-      renderShort();scheduleSave();
+  // 点击单元格 → 打开大窗口编辑
+  body.querySelectorAll('td.cell').forEach(td=>{
+    td.addEventListener('click',()=>{
+      openEdit(+td.dataset.i, td.dataset.f);
     });
   });
   // 购买地点下拉
@@ -412,6 +438,40 @@ function moveRow(i,dir){
   [rows[i],rows[j]]=[rows[j],rows[i]];
   renderGrid();renderShort();scheduleSave();
 }
+/* ---------- 单格编辑弹窗 ---------- */
+let editTarget=null; // {i, f}
+const FIELD_LABEL={name:'品名',req:'要求',amt:'数量'};
+function openEdit(i,f){
+  editTarget={i,f};
+  const r=lists[currentId].rows[i];
+  const val=(f==='amt')?(r.qty||r.wt||''):(r[f]||'');
+  document.getElementById('editLabel').textContent=FIELD_LABEL[f]||'编辑';
+  const inp=document.getElementById('editInput');
+  inp.value=val;
+  document.getElementById('editMask').style.display='flex';
+  // 自动聚焦并把光标放到末尾
+  setTimeout(()=>{inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);},30);
+}
+function closeEdit(save){
+  const mask=document.getElementById('editMask');
+  if(save && editTarget){
+    const {i,f}=editTarget;
+    const v=document.getElementById('editInput').value.trim();
+    if(f==='amt'){
+      lists[currentId].rows[i].qty=v;
+      lists[currentId].rows[i].wt='';
+    }else{
+      lists[currentId].rows[i][f]=v;
+    }
+    renderGrid();renderShort();scheduleSave();
+  }
+  mask.style.display='none';
+  editTarget=null;
+}
+// 点遮罩空白处＝取消
+document.getElementById('editMask').addEventListener('click',e=>{
+  if(e.target.id==='editMask') closeEdit(false);
+});
 // 生成购买地点下拉的 HTML。把所有已知地点列出来，再加一个“其它…”。
 // 若当前行的地点不在已知列表里（少见），也临时把它加进去并选中，避免丢值。
 function shopSelectHTML(current,i,opts){
