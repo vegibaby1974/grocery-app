@@ -32,9 +32,9 @@
   table{width:100%;border-collapse:collapse}
   th{background:#eef0e8;text-align:left;font-weight:600;font-size:13px;color:var(--header);
     padding:9px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
-  td{padding:5px 6px;border-bottom:1px solid #ececdf;vertical-align:middle}
+  td{padding:1px 6px;border-bottom:1px solid #ececdf;vertical-align:middle}
   tr:last-child td{border-bottom:none}
-  td input{width:100%;border:1px solid transparent;background:transparent;padding:5px 6px;border-radius:5px}
+  td input{width:100%;border:1px solid transparent;background:transparent;padding:4px 6px;border-radius:5px}
   td input:hover{border-color:#e3e6d8}
   td input:focus{border-color:var(--accent);background:#fff;outline:none}
   td select:hover{border-color:#e3e6d8 !important}
@@ -91,8 +91,8 @@
     /* 手机上不再隐藏“要求”，整体收紧字号和间距让各列都能显示 */
     body{font-size:14px}
     th{font-size:11px;padding:7px 3px}
-    td{padding:3px 2px}
-    td input{padding:4px 3px;font-size:13px}
+    td{padding:0 2px}
+    td input{padding:3px 3px;font-size:13px}
     td select{font-size:13px;padding:4px 2px !important}
     .col-name{width:29%} .col-req{width:30%} .col-qty{width:15%} .col-shop{width:16%}
     .col-act{width:18px}
@@ -116,12 +116,12 @@
     <input type="password" id="gatePw" placeholder="口令" autocomplete="current-password">
     <button class="primary" id="gateBtn" onclick="unlock()">进入</button>
     <div class="gate-err" id="gateErr"></div>
-    <p style="margin:14px 0 0;font-size:11px;color:#b8bdac">v2.1</p>
+    <p style="margin:14px 0 0;font-size:11px;color:#b8bdac">v2.3</p>
   </div>
 </div>
 
 <header style="display:none" id="appHeader">
-  <h1>买菜清单管理 <span style="font-size:12px;font-weight:400;color:#aab09a;letter-spacing:0">v2.1</span></h1>
+  <h1>买菜清单管理 <span style="font-size:12px;font-weight:400;color:#aab09a;letter-spacing:0">v2.3</span></h1>
   <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
     <span class="sync"><span class="dot" id="syncDot"></span><span id="syncTxt">就绪</span></span>
     <button class="ghost" style="color:#f3f2ec;border-color:#5a6049" onclick="newList()">＋ 新建清单</button>
@@ -332,9 +332,9 @@ function renderGrid(){
   lists[currentId].rows.forEach((r,i)=>{
     const tr=document.createElement('tr');
     tr.innerHTML=`
-      <td class="col-name"><input value="${esc(r.name)}" data-f="name" data-i="${i}" placeholder="品名"></td>
-      <td class="col-req"><input value="${esc(r.req)}" data-f="req" data-i="${i}" placeholder="要求"></td>
-      <td class="col-qty"><input value="${esc(r.qty||r.wt||'')}" data-f="amt" data-i="${i}" placeholder="数量"></td>
+      <td class="col-name"><input value="${esc(r.name)}" data-f="name" data-i="${i}"></td>
+      <td class="col-req"><input value="${esc(r.req)}" data-f="req" data-i="${i}"></td>
+      <td class="col-qty"><input value="${esc(r.qty||r.wt||'')}" data-f="amt" data-i="${i}"></td>
       <td class="col-shop">${shopSelectHTML(r.shop,i,opts)}</td>
       <td class="col-act">
         <button class="rowmenu" title="操作" data-menu="${i}">⋮</button>
