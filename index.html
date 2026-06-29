@@ -137,12 +137,12 @@
     <input type="password" id="gatePw" placeholder="口令" autocomplete="current-password">
     <button class="primary" id="gateBtn" onclick="unlock()">进入</button>
     <div class="gate-err" id="gateErr"></div>
-    <p style="margin:14px 0 0;font-size:11px;color:#b8bdac">v2.9</p>
+    <p style="margin:14px 0 0;font-size:11px;color:#b8bdac">v3.0</p>
   </div>
 </div>
 
 <header style="display:none" id="appHeader">
-  <h1>买菜清单管理 <span style="font-size:12px;font-weight:400;color:#aab09a;letter-spacing:0">v2.9</span></h1>
+  <h1>买菜清单管理 <span style="font-size:12px;font-weight:400;color:#aab09a;letter-spacing:0">v3.0</span></h1>
   <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
     <span class="sync"><span class="dot" id="syncDot"></span><span id="syncTxt">就绪</span></span>
     <button class="ghost" style="color:#f3f2ec;border-color:#5a6049" onclick="newList()">＋ 新建清单</button>
@@ -586,7 +586,7 @@ function drawImage(){
   const colW=ratios.map(r=>Math.round(r*innerW));
   colW.forEach(w=>{colX.push(acc);acc+=w;});
   const CELLPAD=8;                       // 单元格内左侧留白
-  const rowH=40, headH=58, headBarH=40;
+  const rowH=32, headH=54, headBarH=36;
   const padTop=headH+headBarH+6;         // 数据行从表头条之下开始，避免与第一行重叠
   const H=padTop+rows.length*rowH+16;
   cv.width=W*scale;cv.height=H*scale;ctx.scale(scale,scale);
