@@ -137,12 +137,12 @@
     <input type="password" id="gatePw" placeholder="口令" autocomplete="current-password">
     <button class="primary" id="gateBtn" onclick="unlock()">进入</button>
     <div class="gate-err" id="gateErr"></div>
-    <p style="margin:14px 0 0;font-size:11px;color:#b8bdac">v2.6</p>
+    <p style="margin:14px 0 0;font-size:11px;color:#b8bdac">v2.7</p>
   </div>
 </div>
 
 <header style="display:none" id="appHeader">
-  <h1>买菜清单管理 <span style="font-size:12px;font-weight:400;color:#aab09a;letter-spacing:0">v2.6</span></h1>
+  <h1>买菜清单管理 <span style="font-size:12px;font-weight:400;color:#aab09a;letter-spacing:0">v2.7</span></h1>
   <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
     <span class="sync"><span class="dot" id="syncDot"></span><span id="syncTxt">就绪</span></span>
     <button class="ghost" style="color:#f3f2ec;border-color:#5a6049" onclick="newList()">＋ 新建清单</button>
@@ -586,7 +586,8 @@ function drawImage(){
   const colW=ratios.map(r=>Math.round(r*innerW));
   colW.forEach(w=>{colX.push(acc);acc+=w;});
   const CELLPAD=8;                       // 单元格内左侧留白
-  const rowH=32, headH=52, padTop=headH+8; // 行更紧凑；标题下方直接接表头（无日期）
+  const rowH=32, headH=52, headBarH=34;
+  const padTop=headH+headBarH+6;         // 数据行从表头条之下开始，避免与第一行重叠
   const H=padTop+rows.length*rowH+16;
   cv.width=W*scale;cv.height=H*scale;ctx.scale(scale,scale);
   const C=listColor(currentId);
@@ -597,22 +598,20 @@ function drawImage(){
   ctx.fillText(lists[currentId].title||'买菜清单',MARGIN,28);
   // 表头（同色系深一点）
   const hy=headH;
-  ctx.fillStyle=C.head;ctx.fillRect(0,hy,W,34);
+  ctx.fillStyle=C.head;ctx.fillRect(0,hy,W,headBarH);
   ctx.fillStyle='#3a4031';ctx.font='bold 18px sans-serif';
-  ['品名','要求','数量','购买地点'].forEach((h,i)=>ctx.fillText(h,colX[i]+CELLPAD,hy+18));
+  ['品名','要求','数量','购买地点'].forEach((h,i)=>ctx.fillText(h,colX[i]+CELLPAD,hy+headBarH/2));
   // 数据行
-  ctx.font='19px sans-serif';
   rows.forEach((r,i)=>{
     const y=padTop+i*rowH;
+    // 隔行深浅：偶数行用更淡的表头色做斑马纹
+    if(i%2===1){ctx.fillStyle=C.head;ctx.globalAlpha=0.4;ctx.fillRect(0,y,W,rowH);ctx.globalAlpha=1;}
     const amount=(r.qty&&r.qty.trim())?r.qty:(r.wt||'');
     [r.name,r.req,amount,r.shop].forEach((c,j)=>{
       ctx.fillStyle=(j===0)?'#23271f':'#41463a';
       ctx.font=(j===0?'600 19px':'19px')+' sans-serif';
-      ctx.fillText(fit(ctx,c||'',colW[j]-CELLPAD*2),colX[j]+CELLPAD,y+rowH/2-3);
+      ctx.fillText(fit(ctx,c||'',colW[j]-CELLPAD*2),colX[j]+CELLPAD,y+rowH/2);
     });
-    ctx.strokeStyle=C.line;ctx.globalAlpha=0.35;ctx.lineWidth=1;
-    ctx.beginPath();ctx.moveTo(MARGIN,y+rowH-3);ctx.lineTo(W-MARGIN,y+rowH-3);ctx.stroke();
-    ctx.globalAlpha=1;
   });
   // 整圈细边框，强化颜色辨识
   ctx.strokeStyle=C.line;ctx.lineWidth=3;
