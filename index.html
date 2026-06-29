@@ -94,9 +94,10 @@
     td{padding:3px 2px}
     td input{padding:4px 3px;font-size:13px}
     td select{font-size:13px;padding:4px 2px !important}
-    .col-name{width:24%} .col-req{width:26%} .col-qty{width:16%} .col-shop{width:18%}
-    .col-act{width:26px}
-    .rowmenu{font-size:17px;padding:2px 2px}
+    .col-name{width:29%} .col-req{width:30%} .col-qty{width:15%} .col-shop{width:16%}
+    .col-act{width:18px}
+    td.col-act{padding:3px 0}
+    .rowmenu{font-size:16px;padding:1px 0;width:18px}
     /* 表头“购买地点”→“地点” */
     .shop-full{display:none}
     .shop-short{display:inline}
@@ -115,12 +116,12 @@
     <input type="password" id="gatePw" placeholder="口令" autocomplete="current-password">
     <button class="primary" id="gateBtn" onclick="unlock()">进入</button>
     <div class="gate-err" id="gateErr"></div>
-    <p style="margin:14px 0 0;font-size:11px;color:#b8bdac">v2.0</p>
+    <p style="margin:14px 0 0;font-size:11px;color:#b8bdac">v2.1</p>
   </div>
 </div>
 
 <header style="display:none" id="appHeader">
-  <h1>买菜清单管理 <span style="font-size:12px;font-weight:400;color:#aab09a;letter-spacing:0">v2.0</span></h1>
+  <h1>买菜清单管理 <span style="font-size:12px;font-weight:400;color:#aab09a;letter-spacing:0">v2.1</span></h1>
   <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
     <span class="sync"><span class="dot" id="syncDot"></span><span id="syncTxt">就绪</span></span>
     <button class="ghost" style="color:#f3f2ec;border-color:#5a6049" onclick="newList()">＋ 新建清单</button>
