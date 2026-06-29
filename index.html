@@ -28,6 +28,7 @@
   button.ghost{background:transparent}
   .danger{color:var(--warn)}
   .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:16px}
+  .panel.has-menu{overflow:visible}
   table{width:100%;border-collapse:collapse}
   th{background:#eef0e8;text-align:left;font-weight:600;font-size:13px;color:var(--header);
     padding:9px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
@@ -38,13 +39,19 @@
   td input:focus{border-color:var(--accent);background:#fff;outline:none}
   td select:hover{border-color:#e3e6d8 !important}
   td select:focus{border-color:var(--accent) !important;background:#fff;outline:none}
-  .col-name{width:22%} .col-req{width:22%} .col-qty{width:12%} .col-wt{width:12%} .col-shop{width:18%}
-  .col-act{width:70px;text-align:center;white-space:nowrap}
-  .rowdel{border:none;background:none;color:#b9bcae;font-size:18px;cursor:pointer;padding:2px 5px}
-  .rowdel:hover{color:var(--warn)}
-  .rowmove{border:none;background:none;color:#b9bcae;font-size:13px;cursor:pointer;padding:2px 3px;line-height:1}
-  .rowmove:hover{color:var(--accent)}
-  .rowmove:disabled{color:#e0e2d8;cursor:default}
+  .col-name{width:20%} .col-req{width:22%} .col-qty{width:13%} .col-wt{width:13%} .col-shop{width:24%}
+  .col-act{width:30px;text-align:center;position:relative}
+  .rowmenu{border:none;background:none;color:#a9af9c;font-size:18px;cursor:pointer;padding:2px 4px;line-height:1;border-radius:5px}
+  .rowmenu:hover{background:#eef0e8;color:var(--header)}
+  .rowpop{position:absolute;right:4px;top:30px;z-index:20;flex-direction:column;
+    background:#fff;border:1px solid var(--line);border-radius:8px;
+    box-shadow:0 4px 14px rgba(0,0,0,.12);overflow:hidden;min-width:96px}
+  .popitem{border:none;background:#fff;text-align:left;padding:9px 12px;font-size:14px;
+    color:var(--ink);cursor:pointer;white-space:nowrap}
+  .popitem:hover{background:#f0efe7}
+  .popitem:disabled{color:#c8ccbe;cursor:default;background:#fff}
+  .popdel{color:var(--warn)}
+  .popdel:hover{background:#f7e9e4}
   .addrow{padding:10px;background:#fafaf5}
   .meta{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
   .meta input{flex:1;min-width:160px}
@@ -79,9 +86,22 @@
   .gate-card input{width:100%;margin-bottom:12px;text-align:center;font-size:16px;padding:10px}
   .gate-card button{width:100%}
   .gate-err{color:var(--warn);font-size:13px;min-height:18px;margin-top:8px}
+  .shop-short{display:none}
   @media(max-width:640px){
-    .col-req,.col-wt{display:none}
-    th.col-req,th.col-wt{display:none}
+    /* 手机上不再隐藏“要求/重量”，改为整体收紧字号和间距，让六列都能显示 */
+    body{font-size:14px}
+    th{font-size:11px;padding:7px 3px}
+    td{padding:3px 2px}
+    td input{padding:4px 3px;font-size:13px}
+    td select{font-size:13px;padding:4px 2px !important}
+    .col-name{width:20%} .col-req{width:22%} .col-qty{width:14%} .col-wt{width:14%} .col-shop{width:14%}
+    .col-act{width:26px}
+    .rowmenu{font-size:17px;padding:2px 2px}
+    /* 表头“购买地点”→“地点” */
+    .shop-full{display:none}
+    .shop-short{display:inline}
+    /* 购买地点下拉收窄：关闭状态只露出前两个字，展开时仍是完整名称 */
+    select.shopsel{width:100%;min-width:0;text-overflow:clip;padding:4px 1px !important}
   }
 </style>
 </head>
@@ -95,12 +115,12 @@
     <input type="password" id="gatePw" placeholder="口令" autocomplete="current-password">
     <button class="primary" id="gateBtn" onclick="unlock()">进入</button>
     <div class="gate-err" id="gateErr"></div>
-    <p style="margin:14px 0 0;font-size:11px;color:#b8bdac">v1.3</p>
+    <p style="margin:14px 0 0;font-size:11px;color:#b8bdac">v1.5</p>
   </div>
 </div>
 
 <header style="display:none" id="appHeader">
-  <h1>买菜清单管理 <span style="font-size:12px;font-weight:400;color:#aab09a;letter-spacing:0">v1.3</span></h1>
+  <h1>买菜清单管理 <span style="font-size:12px;font-weight:400;color:#aab09a;letter-spacing:0">v1.5</span></h1>
   <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
     <span class="sync"><span class="dot" id="syncDot"></span><span id="syncTxt">就绪</span></span>
     <button class="ghost" style="color:#f3f2ec;border-color:#5a6049" onclick="newList()">＋ 新建清单</button>
@@ -118,7 +138,7 @@
     <input type="text" id="listTitle" placeholder="清单名称（如 11月20日买菜）" oninput="saveCurrent()">
   </div>
 
-  <div class="panel">
+  <div class="panel has-menu">
     <table id="grid">
       <thead>
         <tr>
@@ -126,7 +146,7 @@
           <th class="col-req">要求</th>
           <th class="col-qty">数量</th>
           <th class="col-wt">重量</th>
-          <th class="col-shop">购买地点</th>
+          <th class="col-shop"><span class="shop-full">购买地点</span><span class="shop-short">地点</span></th>
           <th class="col-act"></th>
         </tr>
       </thead>
@@ -315,7 +335,12 @@ function renderGrid(){
       <td class="col-wt"><input value="${esc(r.wt)}" data-f="wt" data-i="${i}" placeholder="重量"></td>
       <td class="col-shop">${shopSelectHTML(r.shop,i,opts)}</td>
       <td class="col-act">
-        <button class="rowmove" title="上移" data-up="${i}"${i===0?' disabled':''}>▲</button><button class="rowmove" title="下移" data-down="${i}"${i===rowCount-1?' disabled':''}>▼</button><button class="rowdel" title="删除" data-del="${i}">×</button>
+        <button class="rowmenu" title="操作" data-menu="${i}">⋮</button>
+        <div class="rowpop" data-pop="${i}" style="display:none">
+          <button class="popitem" data-up="${i}"${i===0?' disabled':''}>↑ 上移</button>
+          <button class="popitem" data-down="${i}"${i===rowCount-1?' disabled':''}>↓ 下移</button>
+          <button class="popitem popdel" data-del="${i}">× 删除</button>
+        </div>
       </td>`;
     body.appendChild(tr);
   });
@@ -354,7 +379,24 @@ function renderGrid(){
   body.querySelectorAll('[data-down]').forEach(b=>{
     b.onclick=()=>{moveRow(+b.dataset.down,1)};
   });
+  // ⋮ 操作菜单：点开/收起这一行的小弹窗
+  body.querySelectorAll('[data-menu]').forEach(b=>{
+    b.onclick=(e)=>{
+      e.stopPropagation();
+      const i=b.dataset.menu;
+      const pop=body.querySelector(`[data-pop="${i}"]`);
+      const isOpen=pop.style.display!=='none';
+      closeAllPops();
+      pop.style.display=isOpen?'none':'flex';
+    };
+  });
 }
+// 关掉所有打开的操作菜单
+function closeAllPops(){
+  document.querySelectorAll('.rowpop').forEach(p=>p.style.display='none');
+}
+// 点页面其它地方收起菜单
+document.addEventListener('click',()=>closeAllPops());
 function moveRow(i,dir){
   const rows=lists[currentId].rows;
   const j=i+dir;
@@ -371,7 +413,7 @@ function shopSelectHTML(current,i,opts){
   const options=all.map(o=>
     `<option value="${esc(o)}"${o===cur?' selected':''}>${esc(o)}</option>`
   ).join('');
-  return `<select data-f="shop" data-i="${i}" style="width:100%;border:1px solid transparent;background:transparent;padding:5px 6px;border-radius:5px;cursor:pointer">
+  return `<select class="shopsel" data-f="shop" data-i="${i}" style="width:100%;border:1px solid transparent;background:transparent;padding:5px 6px;border-radius:5px;cursor:pointer">
     ${options}
     <option value="__other__">＋ 其它…</option>
   </select>`;
