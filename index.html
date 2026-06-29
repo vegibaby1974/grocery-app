@@ -115,12 +115,12 @@
     <input type="password" id="gatePw" placeholder="口令" autocomplete="current-password">
     <button class="primary" id="gateBtn" onclick="unlock()">进入</button>
     <div class="gate-err" id="gateErr"></div>
-    <p style="margin:14px 0 0;font-size:11px;color:#b8bdac">v1.7</p>
+    <p style="margin:14px 0 0;font-size:11px;color:#b8bdac">v1.9</p>
   </div>
 </div>
 
 <header style="display:none" id="appHeader">
-  <h1>买菜清单管理 <span style="font-size:12px;font-weight:400;color:#aab09a;letter-spacing:0">v1.7</span></h1>
+  <h1>买菜清单管理 <span style="font-size:12px;font-weight:400;color:#aab09a;letter-spacing:0">v1.9</span></h1>
   <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
     <span class="sync"><span class="dot" id="syncDot"></span><span id="syncTxt">就绪</span></span>
     <button class="ghost" style="color:#f3f2ec;border-color:#5a6049" onclick="newList()">＋ 新建清单</button>
@@ -159,20 +159,18 @@
   </div>
 
   <div class="bar">
-    <button class="primary" onclick="downloadImage()">⬇ 下载图片</button>
     <button class="primary" onclick="copyShort()">📋 拷贝简化清单</button>
-    <button onclick="previewImage()">预览图片</button>
     <button onclick="forceSync()">↻ 立即同步</button>
+  </div>
+
+  <div class="panel" style="padding:14px">
+    <div class="section-title">图片（长按可保存到相册）</div>
+    <img id="previewImg" style="max-width:100%;border:1px solid var(--line);border-radius:6px;display:block">
   </div>
 
   <div class="panel" style="padding:14px">
     <div class="section-title">简化清单（用于 UU 跑腿下单）</div>
     <div class="out" id="shortOut"></div>
-  </div>
-
-  <div class="panel" id="previewPanel" style="padding:14px;display:none">
-    <div class="section-title">图片预览</div>
-    <img id="previewImg" style="max-width:100%;border:1px solid var(--line);border-radius:6px">
   </div>
 </div>
 
@@ -298,8 +296,13 @@ function toast(msg){
 function renderChips(){
   const c=document.getElementById('listChips');c.innerHTML='';
   Object.keys(lists).forEach(id=>{
+    const col=listColor(id);
     const chip=document.createElement('div');
     chip.className='chip'+(id===currentId?' active':'');
+    // 用清单专属颜色作标签底色，与图片对应
+    chip.style.background=col.chip;
+    chip.style.borderColor=col.line;
+    if(id===currentId){chip.style.boxShadow='0 0 0 2px '+col.line+' inset';}
     const label=document.createElement('span');
     label.textContent=lists[id].title||'未命名清单';
     label.onclick=()=>{currentId=id;scheduleSave(true);renderAll()};
@@ -427,11 +430,24 @@ function buildShort(){
   });
   return "详细要求请参考上传图片,"+parts.join(',');
 }
-function renderShort(){document.getElementById('shortOut').textContent=buildShort()}
+function renderShort(){
+  document.getElementById('shortOut').textContent=buildShort();
+  scheduleImage();
+}
+let imgTimer=null;
+function scheduleImage(){
+  clearTimeout(imgTimer);
+  imgTimer=setTimeout(refreshImage,400); // 停手 0.4 秒后再生成图片，避免边打字边卡
+}
+function refreshImage(){
+  try{
+    const cv=drawImage();
+    document.getElementById('previewImg').src=cv.toDataURL('image/png');
+  }catch(e){}
+}
 function renderAll(){
   document.getElementById('listTitle').value=lists[currentId].title||'';
   renderChips();renderGrid();renderShort();
-  document.getElementById('previewPanel').style.display='none';
 }
 function saveCurrent(){
   lists[currentId].title=document.getElementById('listTitle').value;
@@ -468,6 +484,26 @@ async function copyShort(){
   }
 }
 
+/* ---------- 每份清单的专属颜色 ---------- */
+// 一组区分度高又柔和的配色。每项给三层：bg 浅底、head 深表头、chip 标签底色。
+const PALETTE=[
+  {bg:'#eef4ff',head:'#cfe0fb',chip:'#dcebff',line:'#88aee8'}, // 蓝
+  {bg:'#eafaf0',head:'#cdeed8',chip:'#d9f4e3',line:'#7cc79a'}, // 绿
+  {bg:'#fff3e8',head:'#ffe0c2',chip:'#ffe9d4',line:'#e8aa6b'}, // 橙
+  {bg:'#fdeef4',head:'#f9d3e2',chip:'#fbe0eb',line:'#dd8fb1'}, // 粉
+  {bg:'#f3eefb',head:'#e0d2f4',chip:'#eadfff',line:'#ad8fdd'}, // 紫
+  {bg:'#fffbe6',head:'#f5ecbf',chip:'#fbf3cf',line:'#ddc96b'}, // 黄
+  {bg:'#e8f8f8',head:'#c4ebec',chip:'#d4f1f1',line:'#6fc3c5'}, // 青
+  {bg:'#fdeeee',head:'#f7d2d2',chip:'#fbe0e0',line:'#dd9090'}, // 红
+];
+// 把清单 ID 稳定地映射到调色板的一个下标
+function listColor(id){
+  let h=0;
+  const s=String(id||'');
+  for(let i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))>>>0;}
+  return PALETTE[h%PALETTE.length];
+}
+
 /* ---------- 生成图片 ---------- */
 function drawImage(){
   const rows=lists[currentId].rows.filter(r=>r.name.trim());
@@ -485,28 +521,33 @@ function drawImage(){
   const rowH=32, headH=52, padTop=headH+8; // 行更紧凑；标题下方直接接表头（无日期）
   const H=padTop+rows.length*rowH+16;
   cv.width=W*scale;cv.height=H*scale;ctx.scale(scale,scale);
-  ctx.fillStyle='#ffffff';ctx.fillRect(0,0,W,H);
+  const C=listColor(currentId);
+  // 整张图浅色底
+  ctx.fillStyle=C.bg;ctx.fillRect(0,0,W,H);
   // 标题（不显示日期）
   ctx.fillStyle='#3a4031';ctx.font='bold 26px sans-serif';ctx.textBaseline='middle';
   ctx.fillText(lists[currentId].title||'买菜清单',MARGIN,28);
-  // 表头
+  // 表头（同色系深一点）
   const hy=headH;
-  ctx.fillStyle='#eef0e8';ctx.fillRect(0,hy,W,34);
+  ctx.fillStyle=C.head;ctx.fillRect(0,hy,W,34);
   ctx.fillStyle='#3a4031';ctx.font='bold 18px sans-serif';
   ['品名','要求','数量','重量','购买地点'].forEach((h,i)=>ctx.fillText(h,colX[i]+CELLPAD,hy+18));
   // 数据行
   ctx.font='19px sans-serif';
   rows.forEach((r,i)=>{
     const y=padTop+i*rowH;
-    if(i%2===0){ctx.fillStyle='#fafaf5';ctx.fillRect(0,y-3,W,rowH);}
     [r.name,r.req,r.qty,r.wt,r.shop].forEach((c,j)=>{
       ctx.fillStyle=(j===0)?'#23271f':'#41463a';
       ctx.font=(j===0?'600 19px':'19px')+' sans-serif';
       ctx.fillText(fit(ctx,c||'',colW[j]-CELLPAD*2),colX[j]+CELLPAD,y+rowH/2-3);
     });
-    ctx.strokeStyle='#ececdf';ctx.lineWidth=1;
-    ctx.beginPath();ctx.moveTo(0,y+rowH-3);ctx.lineTo(W,y+rowH-3);ctx.stroke();
+    ctx.strokeStyle=C.line;ctx.globalAlpha=0.35;ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(MARGIN,y+rowH-3);ctx.lineTo(W-MARGIN,y+rowH-3);ctx.stroke();
+    ctx.globalAlpha=1;
   });
+  // 整圈细边框，强化颜色辨识
+  ctx.strokeStyle=C.line;ctx.lineWidth=3;
+  ctx.strokeRect(1.5,1.5,W-3,H-3);
   return cv;
 }
 function fit(ctx,text,maxW){
@@ -514,17 +555,6 @@ function fit(ctx,text,maxW){
   let t=text;
   while(t.length>1 && ctx.measureText(t+'…').width>maxW) t=t.slice(0,-1);
   return t+'…';
-}
-function downloadImage(){
-  const cv=drawImage();const a=document.createElement('a');
-  a.download=(lists[currentId].title||'买菜清单')+'.png';
-  a.href=cv.toDataURL('image/png');a.click();toast('图片已下载');
-}
-function previewImage(){
-  const cv=drawImage();
-  document.getElementById('previewImg').src=cv.toDataURL('image/png');
-  document.getElementById('previewPanel').style.display='block';
-  document.getElementById('previewPanel').scrollIntoView({behavior:'smooth'});
 }
 
 /* ---------- 启动：若本次会话已登录过，自动恢复 ---------- */
