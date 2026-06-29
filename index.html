@@ -39,7 +39,7 @@
   td input:focus{border-color:var(--accent);background:#fff;outline:none}
   td select:hover{border-color:#e3e6d8 !important}
   td select:focus{border-color:var(--accent) !important;background:#fff;outline:none}
-  .col-name{width:20%} .col-req{width:22%} .col-qty{width:13%} .col-wt{width:13%} .col-shop{width:24%}
+  .col-name{width:24%} .col-req{width:26%} .col-qty{width:14%} .col-shop{width:28%}
   .col-act{width:30px;text-align:center;position:relative}
   .rowmenu{border:none;background:none;color:#a9af9c;font-size:18px;cursor:pointer;padding:2px 4px;line-height:1;border-radius:5px}
   .rowmenu:hover{background:#eef0e8;color:var(--header)}
@@ -88,13 +88,13 @@
   .gate-err{color:var(--warn);font-size:13px;min-height:18px;margin-top:8px}
   .shop-short{display:none}
   @media(max-width:640px){
-    /* 手机上不再隐藏“要求/重量”，改为整体收紧字号和间距，让六列都能显示 */
+    /* 手机上不再隐藏“要求”，整体收紧字号和间距让各列都能显示 */
     body{font-size:14px}
     th{font-size:11px;padding:7px 3px}
     td{padding:3px 2px}
     td input{padding:4px 3px;font-size:13px}
     td select{font-size:13px;padding:4px 2px !important}
-    .col-name{width:20%} .col-req{width:22%} .col-qty{width:14%} .col-wt{width:14%} .col-shop{width:14%}
+    .col-name{width:24%} .col-req{width:26%} .col-qty{width:16%} .col-shop{width:18%}
     .col-act{width:26px}
     .rowmenu{font-size:17px;padding:2px 2px}
     /* 表头“购买地点”→“地点” */
@@ -115,12 +115,12 @@
     <input type="password" id="gatePw" placeholder="口令" autocomplete="current-password">
     <button class="primary" id="gateBtn" onclick="unlock()">进入</button>
     <div class="gate-err" id="gateErr"></div>
-    <p style="margin:14px 0 0;font-size:11px;color:#b8bdac">v1.9</p>
+    <p style="margin:14px 0 0;font-size:11px;color:#b8bdac">v2.0</p>
   </div>
 </div>
 
 <header style="display:none" id="appHeader">
-  <h1>买菜清单管理 <span style="font-size:12px;font-weight:400;color:#aab09a;letter-spacing:0">v1.9</span></h1>
+  <h1>买菜清单管理 <span style="font-size:12px;font-weight:400;color:#aab09a;letter-spacing:0">v2.0</span></h1>
   <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
     <span class="sync"><span class="dot" id="syncDot"></span><span id="syncTxt">就绪</span></span>
     <button class="ghost" style="color:#f3f2ec;border-color:#5a6049" onclick="newList()">＋ 新建清单</button>
@@ -145,7 +145,6 @@
           <th class="col-name">品名</th>
           <th class="col-req">要求</th>
           <th class="col-qty">数量</th>
-          <th class="col-wt">重量</th>
           <th class="col-shop"><span class="shop-full">购买地点</span><span class="shop-short">地点</span></th>
           <th class="col-act"></th>
         </tr>
@@ -154,7 +153,7 @@
     </table>
     <div class="addrow">
       <button onclick="addRow()">＋ 添加一行</button>
-      <span class="hint" style="margin-left:8px">提示：填了“数量”就用数量，没数量时用“重量”生成清单</span>
+      <span class="hint" style="margin-left:8px">提示：数量列可填“6个”“6两”“3斤”等</span>
     </div>
   </div>
 
@@ -334,8 +333,7 @@ function renderGrid(){
     tr.innerHTML=`
       <td class="col-name"><input value="${esc(r.name)}" data-f="name" data-i="${i}" placeholder="品名"></td>
       <td class="col-req"><input value="${esc(r.req)}" data-f="req" data-i="${i}" placeholder="要求"></td>
-      <td class="col-qty"><input value="${esc(r.qty)}" data-f="qty" data-i="${i}" placeholder="数量"></td>
-      <td class="col-wt"><input value="${esc(r.wt)}" data-f="wt" data-i="${i}" placeholder="重量"></td>
+      <td class="col-qty"><input value="${esc(r.qty||r.wt||'')}" data-f="amt" data-i="${i}" placeholder="数量"></td>
       <td class="col-shop">${shopSelectHTML(r.shop,i,opts)}</td>
       <td class="col-act">
         <button class="rowmenu" title="操作" data-menu="${i}">⋮</button>
@@ -347,11 +345,17 @@ function renderGrid(){
       </td>`;
     body.appendChild(tr);
   });
-  // 文本类输入（品名/要求/数量/重量）
+  // 文本类输入（品名/要求/数量）
   body.querySelectorAll('input').forEach(inp=>{
     inp.addEventListener('input',e=>{
       const i=+e.target.dataset.i,f=e.target.dataset.f;
-      lists[currentId].rows[i][f]=e.target.value;
+      if(f==='amt'){
+        // 合并后的“数量”列：统一写进 qty，并清空旧的 wt 字段避免重复
+        lists[currentId].rows[i].qty=e.target.value;
+        lists[currentId].rows[i].wt='';
+      }else{
+        lists[currentId].rows[i][f]=e.target.value;
+      }
       renderShort();scheduleSave();
     });
   });
@@ -512,8 +516,8 @@ function drawImage(){
   const W=720;
   const MARGIN=24;                       // 左右页边距
   const innerW=W-MARGIN*2;               // 内容可用宽度
-  // 五列按比例分配，铺满整行宽度（消除右侧留白）；品名列加宽
-  const ratios=[0.30,0.24,0.11,0.11,0.24]; // 品名/要求/数量/重量/地点
+  // 四列按比例分配，铺满整行宽度（数量/重量已合并为“数量”）
+  const ratios=[0.34,0.28,0.14,0.24]; // 品名/要求/数量/地点
   const colX=[]; let acc=MARGIN;
   const colW=ratios.map(r=>Math.round(r*innerW));
   colW.forEach(w=>{colX.push(acc);acc+=w;});
@@ -531,12 +535,13 @@ function drawImage(){
   const hy=headH;
   ctx.fillStyle=C.head;ctx.fillRect(0,hy,W,34);
   ctx.fillStyle='#3a4031';ctx.font='bold 18px sans-serif';
-  ['品名','要求','数量','重量','购买地点'].forEach((h,i)=>ctx.fillText(h,colX[i]+CELLPAD,hy+18));
+  ['品名','要求','数量','购买地点'].forEach((h,i)=>ctx.fillText(h,colX[i]+CELLPAD,hy+18));
   // 数据行
   ctx.font='19px sans-serif';
   rows.forEach((r,i)=>{
     const y=padTop+i*rowH;
-    [r.name,r.req,r.qty,r.wt,r.shop].forEach((c,j)=>{
+    const amount=(r.qty&&r.qty.trim())?r.qty:(r.wt||'');
+    [r.name,r.req,amount,r.shop].forEach((c,j)=>{
       ctx.fillStyle=(j===0)?'#23271f':'#41463a';
       ctx.font=(j===0?'600 19px':'19px')+' sans-serif';
       ctx.fillText(fit(ctx,c||'',colW[j]-CELLPAD*2),colX[j]+CELLPAD,y+rowH/2-3);
