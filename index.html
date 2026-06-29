@@ -137,12 +137,12 @@
     <input type="password" id="gatePw" placeholder="口令" autocomplete="current-password">
     <button class="primary" id="gateBtn" onclick="unlock()">进入</button>
     <div class="gate-err" id="gateErr"></div>
-    <p style="margin:14px 0 0;font-size:11px;color:#b8bdac">v3.0</p>
+    <p style="margin:14px 0 0;font-size:11px;color:#b8bdac">v3.1</p>
   </div>
 </div>
 
 <header style="display:none" id="appHeader">
-  <h1>买菜清单管理 <span style="font-size:12px;font-weight:400;color:#aab09a;letter-spacing:0">v3.0</span></h1>
+  <h1>买菜清单管理 <span style="font-size:12px;font-weight:400;color:#aab09a;letter-spacing:0">v3.1</span></h1>
   <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
     <span class="sync"><span class="dot" id="syncDot"></span><span id="syncTxt">就绪</span></span>
     <button class="ghost" style="color:#f3f2ec;border-color:#5a6049" onclick="newList()">＋ 新建清单</button>
@@ -397,11 +397,11 @@ function renderGrid(){
       e.stopPropagation();
       const i=+b.dataset.i;
       if(b.dataset.shopother){
-        const v=(prompt('输入新的购买地点：')||'').trim();
-        if(v) lists[currentId].rows[i].shop=v;
-      }else{
-        lists[currentId].rows[i].shop=b.dataset.shop;
+        closeAllPops();
+        openShopInput(i);          // 用应用内输入框弹窗
+        return;
       }
+      lists[currentId].rows[i].shop=b.dataset.shop;
       closeAllPops();
       renderGrid();renderShort();scheduleSave();
     };
@@ -442,7 +442,7 @@ function moveRow(i,dir){
   renderGrid();renderShort();scheduleSave();
 }
 /* ---------- 单格编辑弹窗 ---------- */
-let editTarget=null; // {i, f}
+let editTarget=null; // {i, f} 或 {i, mode:'shop'}
 const FIELD_LABEL={name:'品名',req:'要求',amt:'数量'};
 function openEdit(i,f){
   editTarget={i,f};
@@ -452,19 +452,31 @@ function openEdit(i,f){
   const inp=document.getElementById('editInput');
   inp.value=val;
   document.getElementById('editMask').style.display='flex';
-  // 自动聚焦并把光标放到末尾
   setTimeout(()=>{inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);},30);
+}
+// 输入新的购买地点（用同一个弹窗）
+function openShopInput(i){
+  editTarget={i,mode:'shop'};
+  document.getElementById('editLabel').textContent='输入新的购买地点';
+  const inp=document.getElementById('editInput');
+  inp.value='';
+  document.getElementById('editMask').style.display='flex';
+  setTimeout(()=>inp.focus(),30);
 }
 function closeEdit(save){
   const mask=document.getElementById('editMask');
   if(save && editTarget){
-    const {i,f}=editTarget;
     const v=document.getElementById('editInput').value.trim();
-    if(f==='amt'){
-      lists[currentId].rows[i].qty=v;
-      lists[currentId].rows[i].wt='';
+    if(editTarget.mode==='shop'){
+      if(v) lists[currentId].rows[editTarget.i].shop=v;
     }else{
-      lists[currentId].rows[i][f]=v;
+      const {i,f}=editTarget;
+      if(f==='amt'){
+        lists[currentId].rows[i].qty=v;
+        lists[currentId].rows[i].wt='';
+      }else{
+        lists[currentId].rows[i][f]=v;
+      }
     }
     renderGrid();renderShort();scheduleSave();
   }
